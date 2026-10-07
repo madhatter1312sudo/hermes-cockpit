@@ -1,0 +1,76 @@
+# hermes-cockpit — backend configuration (optional).
+#
+# Put this at $HERMES_HOME/cockpit.yaml. Without it, every profile becomes one unit in a single
+# "Fleet" group and the owner seat is `default` — enough for a laptop with one or two profiles.
+# The file is hot-reloaded: edits show on the next poll (a few seconds), no restart.
+#
+# This example is the GSP Recruitment team (TEAM_PLAN.md, "Org chart"). Copy and trim.
+
+title: GSP Floor
+owner_profile: default          # the seat in the centre of the constellation
+owner_label: Sanjeev
+spend_ceiling_usd: 60           # mission bar turns amber at 80 %, red above
+
+# Units never shown (retired profiles still on disk, scratch profiles…)
+hide_profiles: []
+
+# Groups draw as arcs around the owner, in this order. Profiles not listed land in "Other".
+groups:
+  - id: leadership
+    label: Leadership
+    profiles: [chief]
+  - id: operations
+    label: Operations
+    profiles: [coordinator, platform-lead, team-coach, assistant, agent-architect]
+  - id: recruiting
+    label: Recruiting
+    profiles: [recruiter-embedded, recruiter-mechatronics, recruiter-otsec, recruiter-test, sourcer, candidate-support, lead-researcher]
+  - id: clients
+    label: Clients & Commercial
+    profiles: [account-manager, client-success, proposal-writer, market-intelligence, analyst, product-owner]
+  - id: content
+    label: Content & Marketing
+    profiles: [editor, marketing, content-creator]
+  - id: backoffice
+    label: Backoffice
+    profiles: [backoffice, legal, finance]
+  - id: engineering
+    label: Engineering
+    profiles: [engineering-lead, tech-planner, backend-dev, frontend-dev, mobile-dev, devops-engineer, db-engineer, api-designer,
+               auth-engineer, integrations-engineer, test-engineer, performance-engineer, observability-engineer, design-system-engineer,
+               accessibility-specialist, copy-engineer, data-engineer, technical-writer, bug-triager, release-manager, ui-designer]
+  - id: review
+    label: Review
+    profiles: [design-reviewer, qa-engineer, security-auditor, code-reviewer]
+other_group_label: Other
+
+# Files whose AGE matters. Shown as a KPI in the mission bar; red when older than warn_after_s.
+signals:
+  - id: intake
+    label: github intake
+    path: ~/.hermes-team/ops/heartbeats/github-intake
+    warn_after_s: 3600
+  - id: morning-brief
+    label: morning brief
+    path: ~/.hermes-team/ops/heartbeats/gsp-morning-brief
+    warn_after_s: 93600
+  - id: review-log
+    label: review log
+    path: ~/.hermes-team/ops/review-log.tsv
+    warn_after_s: 172800
+
+# Which kanban boards to read (default: every board under $HERMES_HOME/kanban/boards).
+# kanban_boards: [gsp]
+
+# The one write the cockpit can do: "hand a card to this unit" in the drawer. Off by default.
+allow_task_create: false
+
+thresholds:
+  working_window_s: 120         # session activity newer than this = working
+  stale_heartbeat_s: 300        # gateway heartbeat older than this = off duty (when nothing else moves)
+  failed_window_s: 3600         # a failed run / cron inside this window colours the unit "failed"
+  long_task_s: 10800            # a task running longer than this flags a long-task anomaly
+  repeat_tool_calls: 5          # same tool on the same path N times = repeat-call anomaly
+  poll_interval_s: 3
+  history_minutes: 60           # how far the swimlanes can replay
+  feed_size: 400

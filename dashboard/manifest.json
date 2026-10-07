@@ -1,0 +1,7 @@
+{
+  "id": "hermes-cockpit",
+  "name": "Hermes Cockpit",
+  "description": "Live fleet picture of every Hermes profile: who is working, who is blocked, what it costs.",
+  "version": "0.1.0",
+  "api": "plugin_api.py"
+}

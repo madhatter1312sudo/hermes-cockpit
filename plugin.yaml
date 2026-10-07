@@ -1,0 +1,9 @@
+name: hermes-cockpit
+version: "0.1.0"
+description: >-
+  Mission-control view of a Hermes install: every profile as a live unit in a
+  constellation plus swimlanes of what ran when. Read-only sensor in the gateway,
+  desktop plugin for the picture. Works on a single-profile laptop and a 50-profile VPS.
+author: GSP Recruitment
+kind: standalone
+provides_hooks: []

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hermes Cockpit — standalone harness</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* The desktop app injects these variables; the harness provides a dark and a light set. */
+  :root, [data-theme=dark] { --ui-text:#e7e9ee; --ui-text-secondary:#8b93a7; --ui-accent:#7aa2ff; --ui-text-on-accent:#0b1020; --ui-border:rgba(139,147,167,.28);
+    --ui-success:#45c97a; --ui-warning:#f2b63c; --ui-danger:#ff5d5d; --ui-info:#4cc3ff; --ui-surface:rgba(255,255,255,.04); --bg:#0d1017; }
+  [data-theme=light] { --ui-text:#15181f; --ui-text-secondary:#5b6472; --ui-accent:#2f5bea; --ui-text-on-accent:#fff; --ui-border:rgba(21,24,31,.18);
+    --ui-success:#1f9d55; --ui-warning:#b7791f; --ui-danger:#d64545; --ui-info:#1b7fb8; --ui-surface:rgba(0,0,0,.03); --bg:#f6f7fb; }
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--ui-text);font:13px system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  #app{height:calc(100% - 30px)}
+  #harness{height:30px;display:flex;align-items:center;gap:10px;padding:0 10px;border-bottom:1px solid var(--ui-border);font-size:11px;color:var(--ui-text-secondary)}
+  #harness button{font:inherit;background:transparent;color:inherit;border:1px solid var(--ui-border);border-radius:5px;padding:2px 8px;cursor:pointer}
+  #log{margin-left:auto;font-family:ui-monospace,monospace}
+</style>
+<script type="importmap">
+{ "imports": {
+  "react": "https://esm.sh/react@18.3.1",
+  "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
+  "react-dom/client": "https://esm.sh/react-dom@18.3.1/client?deps=react@18.3.1",
+  "@hermes/plugin-sdk": "/dev/sdk-mock.js"
+} }
+</script>
+</head>
+<body data-theme="dark">
+<div id="harness">
+  <strong style="color:var(--ui-text)">harness</strong>
+  <span>desktop/plugin.js with a mock SDK · data from the real sensor on this server</span>
+  <button id="theme">light/dark</button>
+  <button id="settings">settings page</button>
+  <button id="page">cockpit page</button>
+  <span id="log"></span>
+</div>
+<div id="app"></div>
+<script type="module">
+  import React from 'react'
+  import { createRoot } from 'react-dom/client'
+  import { __mock } from '/dev/sdk-mock.js'
+  import plugin from '/desktop/plugin.js'
+
+  const log = (m) => { document.getElementById('log').textContent = m }
+  __mock.onLog = log
+  const timers = new Set(), contribs = []; let settingsPage = null
+  const ctx = {
+    storage: { get: (k, d) => { try { const v = localStorage.getItem('hermes.plugin.hermes-cockpit.' + k); return v == null ? d : JSON.parse(v) } catch (e) { return d } }, set: (k, v) => localStorage.setItem('hermes.plugin.hermes-cockpit.' + k, JSON.stringify(v)), remove: (k) => localStorage.removeItem('hermes.plugin.hermes-cockpit.' + k) },
+    setTimeout: (fn, ms) => { const id = setTimeout(fn, ms); timers.add(id); return () => clearTimeout(id) },
+    setInterval: (fn, ms) => { const id = setInterval(fn, ms); return () => clearInterval(id) },
+    addEventListener: (t, type, fn, o) => { t.addEventListener(type, fn, o); return () => t.removeEventListener(type, fn, o) },
+    onDispose: () => {}, register: (c) => { contribs.push(c); return () => {} }, registerMany: (cs) => { cs.forEach(c => contribs.push(c)); return () => {} },
+    registerSettingsPage: (p) => { settingsPage = p; return () => {} },
+    rest: async (path, opts = {}) => {
+      const r = await fetch('/api/plugins/hermes-cockpit' + path, { method: opts.method || 'GET', headers: { 'content-type': 'application/json' }, body: opts.body ? JSON.stringify(opts.body) : undefined })
+      if (!r.ok) throw new Error(`${r.status} ${(await r.text()).slice(0, 120)}`)
+      return r.json()
+    },
+    socket: () => () => {}
+  }
+  plugin.register(ctx)
+  const root = createRoot(document.getElementById('app'))
+  const route = contribs.find(c => c.data && c.data.path)
+  const showPage = () => root.render(route.render())
+  showPage()
+  document.getElementById('page').onclick = showPage
+  document.getElementById('settings').onclick = () => root.render(React.createElement('div', { style: { padding: 16, maxWidth: 720 } }, settingsPage.render()))
+  document.getElementById('theme').onclick = () => { const b = document.body; b.dataset.theme = b.dataset.theme === 'dark' ? 'light' : 'dark' }
+  // keybinds from the plugin (mod+shift+k etc.) — wire the mock
+  window.addEventListener('keydown', (e) => { if (!(e.ctrlKey || e.metaKey) || !e.shiftKey) return; const kb = contribs.filter(c => c.area === 'keybinds').find(c => c.data.defaults.some(d => d.endsWith('+' + e.key.toLowerCase()))); if (kb) { e.preventDefault(); kb.data.run() } })
+</script>
+</body>
+</html>

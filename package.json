@@ -1,0 +1,16 @@
+{
+  "name": "hermes-cockpit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mission-control desktop plugin + gateway sensor for Hermes Agent",
+  "type": "module",
+  "scripts": {
+    "test": "node tests/smoke-plugin.mjs",
+    "test:py": "python -m pytest -q tests"
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
+}

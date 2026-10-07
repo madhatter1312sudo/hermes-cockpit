@@ -1,0 +1,6 @@
+.venv/
+node_modules/
+.smoke/
+__pycache__/
+.pytest_cache/
+*.pyc
