@@ -7,10 +7,7 @@
 //   demo  — nothing reachable: a synthetic fleet so the page is never blank
 import { jsx, jsxs } from 'react/jsx-runtime'
 import React from 'react'
-import {
-  host, ROUTES_AREA, SIDEBAR_NAV_AREA, STATUSBAR_AREAS, PALETTE_AREA, KEYBINDS_AREA,
-  useValue
-} from '@hermes/plugin-sdk'
+import { host, ROUTES_AREA, SIDEBAR_NAV_AREA, STATUSBAR_AREAS, PALETTE_AREA, KEYBINDS_AREA } from '@hermes/plugin-sdk'
 
 const { useState, useEffect, useRef, useCallback, useMemo } = React
 // Keyed children: the jsx runtime takes `key` as the third argument, not inside props.
@@ -21,20 +18,22 @@ const PATH = '/cockpit'
 const STATES = ['blocked', 'failed', 'task', 'working', 'idle', 'off']
 const STATE_LABEL = { blocked: 'needs you', failed: 'failed', task: 'on task', working: 'working', idle: 'idle', off: 'off duty' }
 
-// ── tiny store (nanostore-shaped so `useValue` from the SDK can read it) ─────────────────
+// ── tiny store. Not a nanostore: the SDK's `useValue` (nanostores' useStore) reads `.value`
+// on subscribe and would see `undefined`; we subscribe ourselves with `useAtom` below.
 function atom(initial) {
   let v = initial; const subs = new Set()
   return {
     get: () => v,
+    get value() { return v },
     set: (n) => { if (n === v) return; v = n; subs.forEach(f => { try { f(v) } catch (e) { /* listener error must not break others */ } }) },
     subscribe: (f) => { subs.add(f); f(v); return () => subs.delete(f) },
     listen: (f) => { subs.add(f); return () => subs.delete(f) }
   }
 }
 function useAtom(a) {
-  // Prefer the SDK hook (shares the app's nanostore semantics); fall back to a local subscription.
-  if (typeof useValue === 'function') { try { return useValue(a) } catch (e) { /* not a nanostore host */ } }
-  const [v, setV] = useState(a.get()); useEffect(() => a.listen(setV), [a]); return v
+  const [v, setV] = useState(a.get())
+  useEffect(() => { setV(a.get()); return a.listen(setV) }, [a])
+  return v
 }
 
 const DEFAULT_PREFS = {
@@ -572,6 +571,16 @@ function Page({ ctx }) {
   ] })
 }
 
+// Any render error shows on the page instead of an empty route.
+class Boundary extends React.Component {
+  constructor(p) { super(p); this.state = { err: null } }
+  static getDerivedStateFromError(err) { return { err } }
+  render() {
+    if (this.state.err) return jsxs('div', { style: { padding: 16, color: 'var(--ui-danger)', fontSize: 12, fontFamily: 'ui-monospace, monospace' }, children: ['Hermes Cockpit failed to render: ', String(this.state.err && this.state.err.message || this.state.err), jsx('div', { style: { color: 'var(--ui-text-secondary)', marginTop: 8 }, children: 'Copy this line into the issue tracker: github.com/madhatter1312sudo/hermes-cockpit' })] })
+    return this.props.children
+  }
+}
+
 // ── statusbar chip ──────────────────────────────────────────────────────────────────────
 function StatusChip() {
   const snap = useAtom($snap); const mode = useAtom($mode)
@@ -612,7 +621,7 @@ export default {
     try { const saved = ctx.storage.get('prefs', null); if (saved && typeof saved === 'object') $prefs.set({ ...DEFAULT_PREFS, ...saved }) } catch (e) { /* fresh install */ }
     const stopPoll = startPoller(ctx); ctx.onDispose(stopPoll)
     ctx.registerMany([
-      { id: 'page', area: ROUTES_AREA, data: { path: PATH }, render: () => jsx(Page, { ctx }) },
+      { id: 'page', area: ROUTES_AREA, data: { path: PATH }, render: () => jsx(Boundary, { children: jsx(Page, { ctx }) }) },
       { id: 'nav', area: SIDEBAR_NAV_AREA, data: { path: PATH, label: 'Cockpit', codicon: 'radio-tower' } },
       { id: 'status', area: STATUSBAR_AREAS.right, order: 110, render: () => jsx(StatusChip, {}) },
       { id: 'palette.open', area: PALETTE_AREA, data: { id: 'cockpit.open', label: 'Open Cockpit', keywords: ['cockpit', 'fleet', 'mission', 'control', 'agents'], run: () => host.navigate(PATH) } },
@@ -622,7 +631,7 @@ export default {
       { id: 'kb.lanes', area: KEYBINDS_AREA, data: { id: 'cockpit.lanes', label: 'Toggle swimlanes', category: 'Cockpit', defaults: ['mod+shift+l'], run: () => setPrefs(ctx, { showLanes: !$prefs.get().showLanes }) } },
       { id: 'kb.next', area: KEYBINDS_AREA, data: { id: 'cockpit.next-blocked', label: 'Next unit that needs you', category: 'Cockpit', defaults: ['mod+shift+n'], run: () => { const bl = unitsOf($snap.get()).filter(x => x.state === 'blocked').map(x => x.profile); if (!bl.length) return notice('nothing needs you right now'); const i = bl.indexOf($selected.get()); $selected.set(bl[(i + 1) % bl.length]) } } }
     ])
-    if (typeof ctx.registerSettingsPage === 'function') ctx.registerSettingsPage({ id: 'settings', title: 'Hermes Cockpit', icon: 'radio-tower', order: 0, render: () => jsx(Settings, { ctx }) })
+    if (typeof ctx.registerSettingsPage === 'function') ctx.registerSettingsPage({ id: 'settings', title: 'Hermes Cockpit', icon: 'radio-tower', order: 0, render: () => jsx(Boundary, { children: jsx(Settings, { ctx }) }) })
     // Keyboard: "/" focuses search when the page is showing; Escape clears selection/replay.
     ctx.addEventListener(window, 'keydown', (e) => {
       const onPage = document.querySelector('.hermes-cockpit'); if (!onPage) return

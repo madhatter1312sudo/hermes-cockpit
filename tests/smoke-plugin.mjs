@@ -40,7 +40,7 @@ let restMode = 'live' // live | fail
 const LIVE = JSON.parse(readFileSync(path.join(here, 'fixtures', 'fleet-live.json'), 'utf8'))
 const sdk = {
   ROUTES_AREA: 'routes', SIDEBAR_NAV_AREA: 'nav', STATUSBAR_AREAS: { left: 'sb.l', right: 'sb.r' }, PALETTE_AREA: 'palette', KEYBINDS_AREA: 'keybinds',
-  useValue: (store) => { const [v, set] = React.useState(store.get()); React.useEffect(() => store.listen(set), [store]); return v },
+  useValue: (store) => { throw new Error('plugin must not use the SDK useValue on non-nanostore atoms') },
   host: {
     navigate: (p) => log.navigate.push(p), newChat: (p) => log.newChat.push(p),
     onEvent: (name, fn) => { log.events[name] = fn; return () => { delete log.events[name] } },
